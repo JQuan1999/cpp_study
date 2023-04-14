@@ -11,23 +11,19 @@ int main(int argc, char* argv[]){
             std::cerr << "Usage: client <ip> <port>"<< std::endl;
             return 1;
         }
+        // endpoint构造函数
+        // 1.传入address和port 例如endpoint(address, port) 用来与remote endpoint连接
+        // 2.传入协议和port 例如endpoint(tcp::v4(), port) 通常用来接受一个连接 
         boost::asio::io_context io;
-        
-        
-        // boost::asio::ip::address add;
-        // add.from_string("127.0.0.1");
-        // tcp::endpoint endpoints(add, short(12345));
-        
-        tcp::resolver resolver(io);
-        tcp::resolver::query query(argv[1], argv[2]);
-        tcp::resolver::iterator endpoint_iterator =  resolver.resolve(query);
-        // tcp::endpoint endpoint = *endpoint_iterator;
-        
-        // tcp::resolver::results_type endpoints = resolver.resolve(argv[1], "daytime");
-
         // 创建套接字
         tcp::socket sock(io);
-        boost::asio::connect(sock, endpoint_iterator);
+        tcp::endpoint endpoint(boost::asio::ip::address::from_string(argv[1]), atoi(argv[2])); // 创建endpoint
+        boost::system::error_code ec = boost::asio::error::host_not_found;
+        // connect连接函数
+        sock.connect(endpoint, ec);
+        if(ec){
+            std::cout<<"connect failed, code is "<<ec.value()<<" error msg is "<<ec.message()<<std::endl;
+        }
 
         for(;;){
             boost::array<char, 128> buf;
@@ -36,7 +32,7 @@ int main(int argc, char* argv[]){
             size_t len = sock.read_some(boost::asio::buffer(buf), error);
 
             if(error == boost::asio::error::eof){
-                continue;
+                break;
             }else if(error)
                 throw boost::system::system_error(error); // some other error
 

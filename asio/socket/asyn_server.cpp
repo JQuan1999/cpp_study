@@ -59,7 +59,7 @@ private:
   {
   }
  
-// 喏，这就是那个回调函数，到达这里的情况有两种，一是数据全部发送完毕，二是发送了error。
+// 这就是那个回调函数，到达这里的情况有两种，一是数据全部发送完毕，二是发送了error。
   void handle_write(const boost::system::error_code& /*error*/,
       size_t /*bytes_transferred*/)
   {

@@ -22,7 +22,7 @@ int main(){
 
             boost::system::error_code ingored_error;
             boost::asio::write(sock, boost::asio::buffer(message), ingored_error);
-
+            
         }
     }catch(std::exception& e){
         std::cerr << e.what() << std::endl;
