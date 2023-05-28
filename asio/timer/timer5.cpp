@@ -6,7 +6,7 @@
 class printer{
 public:
     printer(boost::asio::io_context& io)
-        :strand_(boost::asio::make_strand(io)), 
+        :strand_(io), 
         timer1_(io, boost::asio::chrono::seconds(1)),
         timer2_(io, boost::asio::chrono::seconds(1)), 
         count_(0)
@@ -34,7 +34,7 @@ public:
 private:
     // 将调用同一个context_io的run方法多个线程绑定到同一个strand对象上
     // 保证上一个事件处理函数处理完成之前是没法执行下一个事件处理函数, 解决对共享资源访问的同步问题
-    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+    boost::asio::io_context::strand strand_;
     boost::asio::steady_timer timer1_;
     boost::asio::steady_timer timer2_;
     int count_;
