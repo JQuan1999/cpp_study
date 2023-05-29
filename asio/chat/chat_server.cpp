@@ -2,8 +2,9 @@
 #include<iostream>
 #include<vector>
 #include<memory>
-#include<unordered_set>
+#include<set>
 #include<queue>
+#include<signal.h>
 #include"message.h"
 
 using namespace boost::asio::ip;
@@ -50,7 +51,7 @@ public:
 private:
     enum{QUEUE_SIZE = 100};
     std::deque<Message> _recent_msgs;
-    std::unordered_set<ParticipantPtr> _participants; // 当前聊天室的所有session指针
+    std::set<ParticipantPtr> _participants; // 当前聊天室的所有session指针
 };
 
 
@@ -61,18 +62,36 @@ public:
     {
     }
 
+    ~ChatSession()
+    {
+        Close();
+    }
+
     void Start(){
         // 调用share_from_this
         _room.Join(shared_from_this());
         Read();
     }
 
+    void Close()
+    {
+        Message close_msg("server closed");
+        _write_msg.push(close_msg);
+        while(!_write_msg.empty())
+        {
+            Write();
+        }
+        _sock_ptr->close();
+    }
+
     // 将msg加入写队列待发送给客户端_socket
+    // Deliver由chatroom发送给每一个客户端
     void Deliver(Message msg){
         bool writing = _write_msg.empty();
         _write_msg.push(msg);
         // 队列为空才调用write保证发送的顺序
-        if(writing){
+        if(writing)
+        {
             Write();
         }
     }
@@ -80,18 +99,18 @@ public:
 private:
     
     void Write(){
-        auto self(shared_from_this()); // 调用share_from_this传递给回调函数防止异步调用this失效
+        // 调用async_write将数据发送给客户端
         boost::asio::async_write(*_sock_ptr, boost::asio::buffer(_write_msg.front().Data(), _write_msg.front().Space()), 
-        [this, self](const boost::system::error_code& ec, size_t bytes){
-            this->WriteHandler(ec, bytes);
-        });
+                                std::bind(&ChatSession::WriteHandler, shared_from_this(), 
+                                std::placeholders::_1, std::placeholders::_2));
     }
 
     void WriteHandler(const boost::system::error_code& ec, size_t){
         if(!ec){
             _write_msg.pop();
             // 继续调用Write函数
-            if(!_write_msg.empty()){
+            if(!_write_msg.empty())
+            {
                 Write();
             }
         }else{
@@ -101,12 +120,9 @@ private:
     }
 
     void Read(){
-        auto self(shared_from_this());
-       _sock_ptr->async_read_some(boost::asio::buffer(_read_msg.Data(), _read_msg.Space()), 
-        [this, self](const boost::system::error_code& ec, size_t bytes){
-            this->ReadHandler(ec, bytes);
-        }
-        );
+        // 调用async_read_some从客户端读数据
+        _sock_ptr->async_read_some(boost::asio::buffer(_read_msg.Data(), _read_msg.Space()), 
+                    std::bind(&ChatSession::ReadHandler, shared_from_this(), std::placeholders::_1, std::placeholders::_2));
     }
 
     void ReadHandler(const boost::system::error_code& ec, size_t bytes)
@@ -140,6 +156,20 @@ public:
         Accept();
     }
 
+    ~Server()
+    {
+        Close();
+    }
+
+    void Close()
+    {
+        for(auto& session: _sessions)
+        {
+            session->Close();
+        }
+        _ioc.stop();
+    }
+
     void Accept(){
         // tcp::socket禁止拷贝 因此传递sock的指针给回调函数, 在回调函数中构造一个session
         // 为了防止局部对象被释放所以采用智能指针
@@ -151,7 +181,9 @@ private:
 
     void AcceptHandler(SockPtr sock_ptr, const boost::system::error_code& ec){
         if(!ec){
-           std::make_shared<ChatSession>(sock_ptr, _room)->Start();
+           std::shared_ptr<ChatSession> new_session = std::make_shared<ChatSession>(sock_ptr, _room);
+            new_session->Start();
+            _sessions.insert(new_session);
            // 继续接受新连接
            Accept();
         }else{
@@ -160,6 +192,7 @@ private:
     }
 
 private:
+    std::set<std::shared_ptr<ChatSession>> _sessions;
     boost::asio::io_context& _ioc;
     tcp::acceptor _acceptor;
     ChatRoom _room;
@@ -175,7 +208,8 @@ int main(int argc, char* argv[]){
         tcp::endpoint endpoint(tcp::v4(), atoi(argv[1]));
         Server server(ioc, endpoint);
         ioc.run();
-    }catch(std::exception& e){
+    }catch(std::exception& e)
+    {
         std::cerr << "Exception: "<<e.what() << std::endl;
     }
     return 0;
