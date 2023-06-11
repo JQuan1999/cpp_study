@@ -1,0 +1,14 @@
+syntax="proto2";
+
+package Proto;
+
+message FileContent
+{
+    optional string content = 1;
+    message Student
+    {
+        optional string name = 11;
+        optional int32 age = 12;
+    }
+    optional Student stu = 2;
+}

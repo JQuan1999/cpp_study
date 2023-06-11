@@ -13,13 +13,23 @@ public:
     }
 };
 
-void Delete(Object* ptr)
+class ObjectTest
 {
-    delete[] ptr;
-}
+public:
+    ObjectTest(int num)
+    {
+        ptr = std::shared_ptr<Object[]>(new Object[num], [](Object* data){delete[] data; });
+    }
+    ~ObjectTest()
+    {
+
+    }
+private:
+    shared_ptr<Object[]> ptr;
+};
 
 int main()
 {
-    shared_ptr<Object[]> ptr(new Object[2], Delete);
+    ObjectTest t(10);
     return 0;
 }

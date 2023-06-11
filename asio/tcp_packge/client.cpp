@@ -64,7 +64,7 @@ void Read(std::shared_ptr<tcp::socket> sock)
         if(receive_size != 0){
             uint32_t data_size;
             strncpy(reinterpret_cast<char*>(&data_size), data, DATA_SIZE);
-            pos = pos + DATA_SIZE; // 移动的大小为DATA_SIZE - 1
+            pos = pos + DATA_SIZE; // 移动的大小为DATA_SIZE
             std::cout<<"client receive data bytes: "<<data_size<<", data is:"<<pos<<std::endl;
         }else
         {
